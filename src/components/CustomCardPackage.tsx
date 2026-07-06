@@ -1,0 +1,74 @@
+// CustomCard.js
+import React from 'react';
+import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';  // Use if you have icons like Ionicons
+// You can also import other icons like from 'react-native-vector-icons' if not using Expo.
+
+const CustomCardPackage = ({ leftIcon, centerText, rightIcon, onPress, tittle, colorBack }) => {
+  return (
+    <TouchableOpacity style={[styles.cardContainer, {backgroundColor:colorBack}]} onPress={onPress}>
+      {/* Left Icon or Image */}
+      <View style={styles.iconContainer}>
+        {leftIcon 
+          ? leftIcon//<Image source={leftIcon} style={styles.iconImage} />
+          : ''} 
+      </View>
+
+      {/* Center Text */}
+      <View style={styles.textContainer}>
+        <Text style={[styles.titleText, {fontSize:18, fontWeight:'800'}]}>{tittle}</Text>
+        <Text style={[styles.centerText, {color:'#8C93A3'}]}>{centerText || "Subscribe to your preferred Insurance package"}</Text>
+      </View>
+
+      {/* Right Icon or Image */}
+      <View style={styles.arrowContainer}>
+        {rightIcon 
+          ? <Image source={rightIcon} style={styles.iconImage} />
+          : <Ionicons name="chevron-forward-outline" size={24} color="#000" />}
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+const styles = StyleSheet.create({
+  cardContainer: {
+    flexDirection: 'row',          // Aligns items in a row
+    alignItems: 'center',          // Vertically center-align items
+    justifyContent: 'space-between', // Space between elements
+    backgroundColor: '#FFF',       // White background for the card
+    padding: 15,                   // Padding inside the card
+    borderRadius: 10,              // Rounded corners
+    elevation: 3,                  // Elevation for shadow (Android)
+    shadowColor: '#000',           // Shadow color for iOS
+    shadowOffset: { width: 0, height: 2 }, // iOS shadow
+    shadowOpacity: 0.2,            // iOS shadow opacity
+    shadowRadius: 3,               // iOS shadow blur radius
+    marginVertical: 10,            // Space between cards
+  },
+  iconContainer: {
+    width: 20,                     // Set fixed width for the left icon
+    justifyContent: 'center',      // Vertically center-align icon
+    paddingRight:50,
+  },
+  iconImage: {
+    width: 24,                     // Image width
+    height: 24,                    // Image height
+    resizeMode: 'contain',         // Ensure icon fits in bounds
+  },
+  textContainer: {
+    flex: 1,                       // Take up remaining space in the center
+    paddingHorizontal: 10,         // Horizontal padding around the text
+  },
+  centerText: {
+    fontSize: 14,                  // Font size for the center text
+    fontWeight: '700',             // Medium weight
+    color: '#333',                 // Text color
+    textAlign: 'left',           // Center-align text
+  },
+  arrowContainer: {
+    width: 30,                     // Fixed width for right arrow
+    justifyContent: 'center',      // Vertically center-align icon
+  },
+});
+
+export default CustomCardPackage;

@@ -1,0 +1,19 @@
+import * as React from 'react';
+import Svg, {Path} from 'react-native-svg';
+import {scale} from '../../../../lib/utils/scale';
+
+export default function OrderSvg({size = 1, ...props}) {
+  return (
+    <Svg
+      width={scale(25) * size}
+      height={scale(24) * size}
+      viewBox="0 0 25 24"
+      fill="none"
+      {...props}>
+      <Path
+        d="M16.28 2H8.72C4.94 2 4 3.01 4 7.04V18.3C4 20.96 5.46 21.59 7.23 19.69L7.24 19.68C8.06 18.81 9.31 18.88 10.02 19.83L11.03 21.18C11.84 22.25 13.15 22.25 13.96 21.18L14.97 19.83C15.69 18.87 16.94 18.8 17.76 19.68C19.54 21.58 20.99 20.95 20.99 18.29V7.04C21 3.01 20.06 2 16.28 2ZM15.25 10.75H9.75C9.34 10.75 9 10.41 9 10C9 9.59 9.34 9.25 9.75 9.25H15.25C15.66 9.25 16 9.59 16 10C16 10.41 15.66 10.75 15.25 10.75Z"
+        fill={props.color || '#8C93A3'}
+      />
+    </Svg>
+  );
+}

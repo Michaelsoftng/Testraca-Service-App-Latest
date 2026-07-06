@@ -1,0 +1,93 @@
+{
+  "expo": {
+    "name": "Service App",
+    "slug": "lab-traca",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "userInterfaceStyle": "automatic",
+
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.itvisual.phlebotomist",
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "config": {
+        "googleMapsApiKey": "AIzaSyDjdcMp24DICgNFqsVG9ZQ-I2bsTOPaYm4"
+      },
+      "entitlements": {
+        "aps-environment": "production"
+      },
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Labtraca Diagnostics uses your location to show nearby diagnostic facilities and improve service accuracy.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Labtraca Diagnostics requires access to your location even when running in the background to provide continuous and accurate service availability.",
+        "NSCameraUsageDescription": "This app uses the camera to capture photos, scan documents, and support service-related verification.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+
+    "android": {
+      "package": "com.itvisual.phlebotomist",
+      "googleServicesFile": "./google-services.json",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDjdcMp24DICgNFqsVG9ZQ-I2bsTOPaYm4"
+        }
+      },
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
+      ]
+    },
+
+    "web": {
+      "favicon": "./assets/images/favicon.png"
+    },
+
+    "extra": {
+      "eas": {
+        "projectId": "d69ac460-7a9f-40aa-b167-144cc0c714cc"
+      }
+    },
+
+    "plugins": [
+      "expo-font",
+      "expo-web-browser",
+
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ],
+
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png"
+        }
+      ],
+
+      [
+        "expo-splash-screen",
+        {
+          "image": "./src/assets/images/Labtraca_Logo.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#006968"
+        }
+      ],
+
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
+      "./plugins/with-firebase-messaging-manifest-fix.js"
+    ],
+
+    "jsEngine": "hermes"
+  }
+}

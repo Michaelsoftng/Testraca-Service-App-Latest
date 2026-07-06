@@ -1,0 +1,14 @@
+
+> Phlebotomist-traca@1.0.0 start
+> expo start --reset-cache
+
+Starting project at /Users/mac/Desktop/Projects/labtraca-apis/phelbo (Copy) 2 copy
+Starting Metro Bundler
+Unable to run simctl:
+Error: xcrun simctl help exited with non-zero code: 72
+warning: Bundler cache is empty, rebuilding (this may take a minute)
+The following packages should be updated for best compatibility with the installed expo version:
+  react-native@0.79.5 - expected version: 0.79.6
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8081
+Logs for your project will appear below.

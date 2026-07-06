@@ -1,0 +1,11 @@
+
+> Phlebotomist-traca@1.0.0 start
+> expo start --reset-cache
+
+Starting project at /Users/mac/Desktop/Projects/labtraca-apis/phelbo (Copy) 2 copy
+› Port 8081 is running this app in another window
+  /Users/mac/Desktop/Projects/labtraca-apis/phelbo (Copy) 2 copy (pid 72050)
+Input is required, but 'npx expo' is in non-interactive mode.
+Required input:
+> Use port 8082 instead?
+› Skipping dev server
