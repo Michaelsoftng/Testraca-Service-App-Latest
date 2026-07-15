@@ -8,9 +8,12 @@ node_modules/
 dist/
 web-build/
 
-# Firebase — never commit platform credentials to source control
-google-services.json
-GoogleService-Info.plist
+# Firebase client config (google-services.json, GoogleService-Info.plist) is
+# intentionally NOT excluded here — these are client-side only, contain no
+# private key, and are embedded in the APK/IPA binary anyway. EAS Build needs
+# them git-tracked to include them in the build.
+# The admin service account JSON (labtraca-service-account.json) IS sensitive
+# and must stay out of git — that is excluded in the backend repo's .gitignore.
 
 # EAS / Android signing credentials — contain keystore passwords
 credentials.json

@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "142534691103",
+    "project_id": "labtraca",
+    "storage_bucket": "labtraca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:142534691103:android:5d0a5f65eed0ed2d2dc82a",
+        "android_client_info": {
+          "package_name": "com.itvisual.labtraca"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSvyhcVJZ5B_JVbeoWWBXa7tz74Bt63cc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:142534691103:android:6cdb490404ba3f972dc82a",
+        "android_client_info": {
+          "package_name": "com.itvisual.phlebotomist"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCSvyhcVJZ5B_JVbeoWWBXa7tz74Bt63cc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

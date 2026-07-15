@@ -1,9 +1,11 @@
 // No static import of @react-native-firebase/messaging — Firebase runs a native
 // module lookup at import time which throws in Expo Go. Dynamic require is used
 // instead so the check only runs after we confirm the native module is present.
+import * as Notifications from 'expo-notifications';
 import { NativeModules, Platform } from 'react-native';
 import client from '../schema/apolloClient';
 import { REGISTER_DEVICE_TOKEN, UNREGISTER_DEVICE_TOKEN } from '../schema/ApiSchema';
+import { NOTIFICATION_CHANNEL_ID } from './pushNotifications';
 
 // Safe check — NativeModules is always present; accessing a missing key returns undefined.
 const isFirebaseAvailable = (): boolean => !!NativeModules.RNFBAppModule;
@@ -13,11 +15,31 @@ const isFirebaseAvailable = (): boolean => !!NativeModules.RNFBAppModule;
 const getMessaging = () => require('@react-native-firebase/messaging').default();
 
 // Must be called at module scope (before React mounts) so Firebase can wake
-// the JS engine when the app is closed and a push arrives.
+// the JS engine when the app is killed and a push arrives.
+//
+// When expo-notifications' native FCM service is present alongside
+// @react-native-firebase/messaging, one service intercepts the FCM message
+// and the other does not. We cannot know which one wins at runtime, so:
+//   • expo-notifications handles display via addNotificationReceivedListener
+//     (wired in NotificationCenterBridge) when it wins.
+//   • @react-native-firebase/messaging fires this handler when it wins; we
+//     explicitly schedule a local notification so the user always sees one.
 export function registerBackgroundFCMHandler(): void {
   if (!isFirebaseAvailable()) return;
-  getMessaging().setBackgroundMessageHandler(async () => {
-    // The `notification` field is rendered as an OS banner automatically.
+  getMessaging().setBackgroundMessageHandler(async (remoteMessage: any) => {
+    const title = (remoteMessage.notification?.title ?? '') as string;
+    const body = (remoteMessage.notification?.body ?? '') as string;
+    if (!title) return;
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: (remoteMessage.data ?? {}) as Record<string, unknown>,
+        sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: Platform.OS === 'android' ? { channelId: NOTIFICATION_CHANNEL_ID } : null,
+    });
   });
 }
 
@@ -79,15 +101,21 @@ export function onFCMTokenRefresh(callback: (newToken: string) => void): () => v
   return getMessaging().onTokenRefresh(callback);
 }
 
-// Fires when the app is foregrounded and a FCM message arrives.
-// The WebSocket already delivered this event — update state silently, no banner.
+// Fires when the app is in the foreground OR minimized-but-JS-running when a
+// FCM message arrives. The caller receives both the notification payload (for
+// title/body — these are NOT in remoteMessage.data) and the data bag (for
+// meta fields like request_id). The caller decides whether to show a banner.
 export function onFCMForegroundMessage(
-  callback: (data: Record<string, string>) => void
+  callback: (
+    notification: { title?: string; body?: string } | undefined,
+    data: Record<string, string>,
+  ) => void,
 ): () => void {
   if (!isFirebaseAvailable()) return () => {};
   return getMessaging().onMessage(async (remoteMessage: any) => {
-    if (remoteMessage.data) {
-      callback(remoteMessage.data as Record<string, string>);
-    }
+    callback(
+      remoteMessage.notification as { title?: string; body?: string } | undefined,
+      (remoteMessage.data ?? {}) as Record<string, string>,
+    );
   });
 }

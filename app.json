@@ -18,8 +18,8 @@
         "aps-environment": "production"
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Labtraca Diagnostics uses your location to show nearby diagnostic facilities and improve service accuracy.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "Labtraca Diagnostics requires access to your location even when running in the background to provide continuous and accurate service availability.",
+        "NSLocationWhenInUseUsageDescription": "Testraca Diagnostics uses your location to show nearby diagnostic facilities and improve service accuracy.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Testraca Diagnostics requires access to your location even when running in the background to provide continuous and accurate service availability.",
         "NSCameraUsageDescription": "This app uses the camera to capture photos, scan documents, and support service-related verification.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -69,7 +69,10 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png"
+          "icon": "./assets/images/icon.png",
+          "color": "#005c5c",
+          "defaultChannel": "labtraca-default",
+          "sounds": []
         }
       ],
 
