@@ -3,16 +3,19 @@
 // Gradle's manifest merger rejects duplicate attributes unless the app-level
 // manifest declares `tools:replace` on the winning entry.
 //
-// This plugin runs in TWO phases to cover all Expo plugin ordering scenarios:
+// ROOT CAUSE: Expo's prebuild runs withAndroidManifest in multiple passes.
+// Our previous plugin only patched EXISTING entries (correct when running
+// after expo-notifications) but expo-notifications can re-add the entries in
+// a LATER pass after Phase 2 already patched the file — losing tools:replace.
 //
-//   Phase 1 — withAndroidManifest: operates on the in-memory parsed manifest
-//   object. Because our plugin is registered LAST in app.json, this callback
-//   runs after expo-notifications' withAndroidManifest has already inserted its
-//   meta-data entries into the object. We add tools:replace directly.
+// FIX: Phase 1 now PRE-CREATES the entries with tools:replace if they are not
+// yet present. expo-notifications' addMetaDataItemToMainApplication only sets
+// android:value / android:resource on a matching existing entry — it never
+// removes other attributes. So tools:replace survives whether we run before
+// or after expo-notifications in any pass.
 //
-//   Phase 2 — withDangerousMod: runs after ALL withAndroidManifest results are
-//   flushed to disk. Acts as a belt-and-suspenders backup in case any plugin
-//   re-writes the file after Phase 1 (e.g., via its own withDangerousMod).
+// Phase 2 (withDangerousMod) is kept as a final-pass belt-and-suspenders
+// guard that patches the serialised file on disk.
 
 const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
 const fs = require('fs');
@@ -22,13 +25,14 @@ const FCM_CHANNEL_META = 'com.google.firebase.messaging.default_notification_cha
 const FCM_COLOR_META   = 'com.google.firebase.messaging.default_notification_color';
 const TOOLS_NS         = 'http://schemas.android.com/tools';
 
+const CHANNEL_VALUE  = 'labtraca-default';
+const COLOR_RESOURCE = '@color/notification_icon_color';
+
 // ─── Phase 1: withAndroidManifest ────────────────────────────────────────────
 function fixWithAndroidManifest(config) {
   return withAndroidManifest(config, (config) => {
     const { manifest } = config.modResults;
 
-    // Declare xmlns:tools on the root <manifest> element so the tools:replace
-    // attributes below are valid XML when Expo serialises the manifest to disk.
     if (!manifest.$['xmlns:tools']) {
       manifest.$['xmlns:tools'] = TOOLS_NS;
     }
@@ -36,34 +40,50 @@ function fixWithAndroidManifest(config) {
     const application = manifest.application?.[0];
     if (!application) return config;
 
-    let channelFixed = false;
-    let colorFixed   = false;
-
-    for (const item of (application['meta-data'] ?? [])) {
-      const name = item.$?.['android:name'];
-
-      if (name === FCM_CHANNEL_META) {
-        // android:value is a plain string → tools:replace="android:value"
-        item.$['tools:replace'] = 'android:value';
-        channelFixed = true;
-      }
-      if (name === FCM_COLOR_META) {
-        // android:resource is a drawable/color ref → tools:replace="android:resource"
-        item.$['tools:replace'] = 'android:resource';
-        colorFixed = true;
-      }
+    if (!application['meta-data']) {
+      application['meta-data'] = [];
     }
 
-    if (channelFixed || colorFixed) {
-      console.log(
-        '[with-firebase-messaging-manifest-fix] Phase 1: added tools:replace to',
-        { channelFixed, colorFixed },
-      );
+    // ── channel_id ────────────────────────────────────────────────────────
+    // If the entry already exists (expo-notifications ran before us in this
+    // pass), add tools:replace to it. If it doesn't exist yet (we're running
+    // first), pre-create it — expo-notifications will later update
+    // android:value via addMetaDataItemToMainApplication which only sets the
+    // value/resource attribute and preserves everything else (including our
+    // tools:replace).
+    const channelEntry = application['meta-data'].find(
+      item => item.$?.['android:name'] === FCM_CHANNEL_META,
+    );
+    if (channelEntry) {
+      channelEntry.$['tools:replace'] = 'android:value';
+      console.log('[with-firebase-messaging-manifest-fix] Phase 1: channel_id — patched existing entry');
     } else {
-      console.warn(
-        '[with-firebase-messaging-manifest-fix] Phase 1: FCM meta-data entries not yet present ' +
-        'in manifest object — Phase 2 (withDangerousMod) will handle them.',
-      );
+      application['meta-data'].push({
+        $: {
+          'android:name':  FCM_CHANNEL_META,
+          'android:value': CHANNEL_VALUE,
+          'tools:replace': 'android:value',
+        },
+      });
+      console.log('[with-firebase-messaging-manifest-fix] Phase 1: channel_id — pre-created entry with tools:replace');
+    }
+
+    // ── notification_color ────────────────────────────────────────────────
+    const colorEntry = application['meta-data'].find(
+      item => item.$?.['android:name'] === FCM_COLOR_META,
+    );
+    if (colorEntry) {
+      colorEntry.$['tools:replace'] = 'android:resource';
+      console.log('[with-firebase-messaging-manifest-fix] Phase 1: color — patched existing entry');
+    } else {
+      application['meta-data'].push({
+        $: {
+          'android:name':     FCM_COLOR_META,
+          'android:resource': COLOR_RESOURCE,
+          'tools:replace':    'android:resource',
+        },
+      });
+      console.log('[with-firebase-messaging-manifest-fix] Phase 1: color — pre-created entry with tools:replace');
     }
 
     return config;
