@@ -900,6 +900,32 @@ export const GETREQUESTBYID = `query getRequest($id: ID!) {
       gender
       status
     }
+    patients {
+      name
+      firstName
+      lastName
+      age
+      gender
+      email
+      phoneNumber
+      source
+      testCount
+      testRequestIds
+      items {
+        kind
+        packageId
+        packageName
+        status
+        testCount
+        testRequestIds
+        tests {
+          id
+          name
+          code
+          price
+        }
+      }
+    }
     requestedByProfessional {
         id
         firstName

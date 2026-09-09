@@ -160,8 +160,29 @@ export default function VeiwOrder() {
   const pickupAddress = data?.samplePickUpAddress || data?.pickUpAddress || "N/A";
 
   const testCount: number = data?.testRequestCount ?? tests.length;
+
+  // Show the PACKAGE name(s) (plus any standalone test names) here — not every
+  // individual test inside a package. Sourced from the roster items.
+  const specimenNames: string[] = (() => {
+    const roster = Array.isArray(data?.patients) ? data.patients : [];
+    const set = new Set<string>();
+    roster.forEach((p: any) =>
+      (Array.isArray(p?.items) ? p.items : []).forEach((item: any) => {
+        const isPackage = item?.kind === "PACKAGE" || Boolean(item?.packageId);
+        if (isPackage && item?.packageName) set.add(item.packageName);
+        else
+          (Array.isArray(item?.tests) ? item.tests : []).forEach(
+            (t: any) => t?.name && set.add(t.name)
+          );
+      })
+    );
+    return Array.from(set);
+  })();
+
   const specimenLabel =
-    tests.length > 0
+    specimenNames.length > 0
+      ? specimenNames.join(", ")
+      : tests.length > 0
       ? tests.join(", ")
       : `${testCount} test${testCount === 1 ? "" : "s"}`;
 
@@ -192,6 +213,97 @@ export default function VeiwOrder() {
         status: t?.status,
       }))
     : [];
+
+  // Group the sample-patient manifest by PACKAGE (or standalone test) so a
+  // multi-test package shows as ONE row (with a View toggle to reveal the
+  // tests inside) instead of one near-identical row per test. Sourced from the
+  // roster `patients[].items`; falls back to the flat samplePatients list.
+  const manifestRows = useMemo(() => {
+    const roster = Array.isArray(data?.patients) ? data.patients : [];
+    const recs = Array.isArray(data?.requestId)
+      ? data.requestId
+      : Array.isArray(data?.testRequests)
+      ? data.testRequests
+      : [];
+    const rows: any[] = [];
+
+    roster.forEach((p: any, pIdx: number) => {
+      const name = (p?.name || `${p?.firstName || ""} ${p?.lastName || ""}`).trim();
+      const nameKey = name.toLowerCase();
+      const rec = recs.find(
+        (r: any) => (r?.patientName || "").trim().toLowerCase() === nameKey
+      );
+      const patientAge = p?.age ?? rec?.patientAge ?? null;
+      const gender = p?.gender ?? rec?.gender ?? "";
+      const items = Array.isArray(p?.items) ? p.items : [];
+
+      if (items.length === 0) {
+        rows.push({
+          id: `${p?.id || nameKey || pIdx}-0`,
+          patientName: name || "Patient",
+          patientAge,
+          gender,
+          status: rec?.status || data?.requestStatus,
+          kind: "test",
+          label: "",
+          tests: [],
+        });
+        return;
+      }
+
+      items.forEach((item: any, idx: number) => {
+        const isPackage = item?.kind === "PACKAGE" || Boolean(item?.packageId);
+        const testNames = (Array.isArray(item?.tests) ? item.tests : [])
+          .map((t: any) => t?.name)
+          .filter(Boolean);
+        rows.push({
+          id: `${p?.id || nameKey || pIdx}-${idx}`,
+          patientName: name || "Patient",
+          patientAge,
+          gender,
+          status: item?.status || rec?.status || data?.requestStatus,
+          kind: isPackage ? "package" : "test",
+          label: isPackage ? item?.packageName || "Package" : testNames.join(", "),
+          tests: testNames,
+        });
+      });
+    });
+
+    if (rows.length === 0) {
+      return (samplePatients || []).map((p: any, idx: number) => ({
+        id: p?.id || idx,
+        patientName: p?.patientName || "Patient",
+        patientAge: p?.patientAge ?? null,
+        gender: p?.gender || "",
+        status: p?.status,
+        kind: "test",
+        label: "",
+        tests: [],
+      }));
+    }
+
+    return rows;
+  }, [data, samplePatients]);
+
+  const uniquePatientCount = useMemo(() => {
+    const roster = Array.isArray(data?.patients) ? data.patients : [];
+    if (roster.length) return roster.length;
+    const names = new Set(
+      (samplePatients || [])
+        .map((p: any) => (p?.patientName || "").trim().toLowerCase())
+        .filter(Boolean)
+    );
+    return names.size || samplePatients.length;
+  }, [data, samplePatients]);
+
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const toggleRow = (id: string) =>
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   if (fetching) {
     return (
@@ -251,9 +363,7 @@ export default function VeiwOrder() {
           <View className="flex-row justify-between pb-4 border-b border-gray-100 mb-4">
             <View>
               <Text className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Patients</Text>
-              <Text className="text-xs font-bold text-[#475569] mt-0.5">{samplePatients.length || 0 
-              // : patients.length
-              } Total</Text>
+              <Text className="text-xs font-bold text-[#475569] mt-0.5">{uniquePatientCount || 0} Total</Text>
             </View>
             <View className="items-end">
               <Text className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Drop-off Distance</Text>
@@ -304,30 +414,72 @@ export default function VeiwOrder() {
         </View>
 
         {/* Section Block 1b: Sample Patient(s) Manifest */}
-        {samplePatients.length > 0 && (
+        {manifestRows.length > 0 && (
           <>
             <Text className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
-              Sample Patient{samplePatients.length === 1 ? "" : "s"}
+              Sample Patient{manifestRows.length === 1 ? "" : "s"}
             </Text>
             <View className="bg-white border border-gray-200 rounded-2xl p-4 mb-4 shadow-sm">
-              {samplePatients.map((p, idx) => (
-                <View
-                  key={p?.id || idx}
-                  className={`flex-row justify-between items-center ${
-                    idx > 0 ? "mt-3 pt-3 border-t border-gray-50" : ""
-                  }`}
-                >
-                  <View className="flex-1 pr-2">
-                    <Text className="text-sm font-bold text-slate-900">{p?.patientName || "Patient"}</Text>
-                    <Text className="text-xs text-slate-500 mt-0.5">
-                      {p?.patientAge != null ? `${p.patientAge} yrs` : "Age N/A"} · {statusLabel(p?.gender)}
-                    </Text>
+              {manifestRows.map((row: any, idx: number) => {
+                const isPackage = row.kind === "package";
+                const expanded = expandedRows.has(row.id);
+                return (
+                  <View
+                    key={row.id || idx}
+                    className={`${idx > 0 ? "mt-3 pt-3 border-t border-gray-50" : ""}`}
+                  >
+                    <View className="flex-row justify-between items-center">
+                      <View className="flex-1 pr-2">
+                        <Text className="text-sm font-bold text-slate-900">{row.patientName || "Patient"}</Text>
+                        <Text className="text-xs text-slate-500 mt-0.5">
+                          {row.patientAge != null ? `${row.patientAge} yrs` : "Age N/A"} · {statusLabel(row.gender)}
+                        </Text>
+                        {row.label ? (
+                          <View className="flex-row items-center mt-1 flex-wrap">
+                            {isPackage ? (
+                              <View className="bg-indigo-50 px-2 py-0.5 rounded-md mr-1.5">
+                                <Text className="text-indigo-700 text-[9px] font-bold">PACKAGE</Text>
+                              </View>
+                            ) : null}
+                            <Text className="text-teal-800 text-xs font-semibold flex-shrink" numberOfLines={1}>
+                              {row.label}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <View className="flex-row items-center">
+                        {isPackage && row.tests.length > 0 ? (
+                          <TouchableOpacity
+                            className="border border-teal-700 px-3 py-1 rounded-lg mr-2"
+                            onPress={() => toggleRow(row.id)}
+                          >
+                            <Text className="text-teal-700 text-[11px] font-semibold">
+                              {expanded ? "Hide" : "View"}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        <View className={`${getBadgeColors(row.status)} px-2.5 py-1 rounded-full`}>
+                          <Text className="text-[10px] font-bold uppercase tracking-wide">{statusLabel(row.status)}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    {isPackage && expanded && row.tests.length > 0 ? (
+                      <View className="mt-2.5 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <Text className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                          {row.tests.length} test{row.tests.length === 1 ? "" : "s"} in this package
+                        </Text>
+                        {row.tests.map((tn: string, i: number) => (
+                          <View key={i} className="flex-row items-center py-0.5">
+                            <Text className="text-teal-700 mr-1.5">•</Text>
+                            <Text className="text-xs text-slate-700 flex-1">{tn}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
                   </View>
-                  <View className={`${getBadgeColors(p?.status)} px-2.5 py-1 rounded-full`}>
-                    <Text className="text-[10px] font-bold uppercase tracking-wide">{statusLabel(p?.status)}</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </>
         )}
