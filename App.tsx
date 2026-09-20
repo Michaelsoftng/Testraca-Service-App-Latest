@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import "./global.css";
 
@@ -13,6 +13,59 @@ import { registerBackgroundFCMHandler } from "./src/core/fcmNotifications";
 // Keep the native splash up until Splashscreen.tsx mounts and takes over.
 SplashScreen.preventAutoHideAsync().catch(() => {});
 registerBackgroundFCMHandler();
+
+// ─── Diagnostic: surface startup JS errors on screen ────────────────────────
+// A production build aborts on an unhandled JS error before any message is
+// visible. Capture the global handler's error so the boundary below can show
+// it (and always hide the native splash so the screen is visible).
+let __startupError: { message: string; stack: string } | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const EU: any = (global as any).ErrorUtils;
+  if (EU?.setGlobalHandler) {
+    const previous = EU.getGlobalHandler?.();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    EU.setGlobalHandler((error: any, isFatal?: boolean) => {
+      __startupError = {
+        message: String(error?.message ?? error),
+        stack: String(error?.stack ?? "").slice(0, 1500),
+      };
+      SplashScreen.hideAsync().catch(() => {});
+      if (!isFatal && typeof previous === "function") {
+        try { previous(error, isFatal); } catch { /* ignore */ }
+      }
+    });
+  }
+} catch { /* ignore */ }
+
+class StartupErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch() {
+    SplashScreen.hideAsync().catch(() => {});
+  }
+  render() {
+    const err = this.state.error || __startupError;
+    if (err) {
+      return (
+        <View style={styles.errorScreen}>
+          <ScrollView contentContainerStyle={{ padding: 20 }}>
+            <Text style={styles.errorTitle}>Startup error (diagnostic build)</Text>
+            <Text selectable style={styles.errorMessage}>
+              {String((err as any).message)}
+            </Text>
+            <Text selectable style={styles.errorStack}>
+              {String((err as any).stack ?? "")}
+            </Text>
+          </ScrollView>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 import Splashscreen from "./src/screen/Splashscreen";
 import Signup from "./src/screen/login/Signup";
@@ -134,6 +187,7 @@ export default function App() {
   }, []);
 
   return (
+    <StartupErrorBoundary>
     <ApolloProvider client={client}>
       <Provider store={store}>
         <PersistGate loading={<ActivityIndicator />} persistor={persistor}>
@@ -473,12 +527,35 @@ export default function App() {
         </PersistGate>
       </Provider>
     </ApolloProvider>
+    </StartupErrorBoundary>
   );
 }
 
 const styles = StyleSheet.create({
   flexOne: {
     flex: 1,
+  },
+  errorScreen: {
+    flex: 1,
+    backgroundColor: "#0b1d1d",
+    paddingTop: 60,
+  },
+  errorTitle: {
+    color: "#ffd5d5",
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 12,
+  },
+  errorMessage: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 16,
+  },
+  errorStack: {
+    color: "#9fb4b4",
+    fontSize: 11,
+    fontFamily: "Courier",
   },
   fullScreenLoader: {
     ...StyleSheet.absoluteFillObject,
