@@ -10,20 +10,27 @@ export function configureNotificationHandler(): void {
   if (handlerConfigured) return;
   handlerConfigured = true;
 
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowAlert: true,
-      shouldShowList: true,
-      shouldPlaySound: true,
-      shouldSetBadge: false,
-    }),
-  });
+  // Runs at module scope, before React mounts. Never let a failure here
+  // propagate — an uncaught throw at module scope aborts the whole JS bundle
+  // and leaves the native splash frozen forever.
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowAlert: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
 
-  // Create channel immediately at module scope so it exists before any FCM
-  // message can arrive. We intentionally do not wait for this promise — it
-  // completes in milliseconds and long before any user interaction.
-  void createNotificationChannel();
+    // Create channel immediately at module scope so it exists before any FCM
+    // message can arrive. We intentionally do not wait for this promise — it
+    // completes in milliseconds and long before any user interaction.
+    void createNotificationChannel();
+  } catch (e) {
+    console.warn('[notifications] configureNotificationHandler failed:', e);
+  }
 }
 
 export async function createNotificationChannel(): Promise<void> {

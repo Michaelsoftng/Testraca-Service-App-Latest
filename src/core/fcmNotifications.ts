@@ -25,22 +25,31 @@ const getMessaging = () => require('@react-native-firebase/messaging').default()
 //   • @react-native-firebase/messaging fires this handler when it wins; we
 //     explicitly schedule a local notification so the user always sees one.
 export function registerBackgroundFCMHandler(): void {
-  if (!isFirebaseAvailable()) return;
-  getMessaging().setBackgroundMessageHandler(async (remoteMessage: any) => {
-    const title = (remoteMessage.notification?.title ?? '') as string;
-    const body = (remoteMessage.notification?.body ?? '') as string;
-    if (!title) return;
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title,
-        body,
-        data: (remoteMessage.data ?? {}) as Record<string, unknown>,
-        sound: 'default',
-        priority: Notifications.AndroidNotificationPriority.MAX,
-      },
-      trigger: Platform.OS === 'android' ? { channelId: NOTIFICATION_CHANNEL_ID } : null,
+  // Runs at module scope, before React mounts. Firebase's native init can throw
+  // here in a release build (e.g. a mis-bundled GoogleService-Info.plist) even
+  // though the same code is skipped in dev where Firebase isn't linked. An
+  // uncaught throw at module scope aborts the whole JS bundle and freezes the
+  // native splash forever, so this must never be allowed to propagate.
+  try {
+    if (!isFirebaseAvailable()) return;
+    getMessaging().setBackgroundMessageHandler(async (remoteMessage: any) => {
+      const title = (remoteMessage.notification?.title ?? '') as string;
+      const body = (remoteMessage.notification?.body ?? '') as string;
+      if (!title) return;
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title,
+          body,
+          data: (remoteMessage.data ?? {}) as Record<string, unknown>,
+          sound: 'default',
+          priority: Notifications.AndroidNotificationPriority.MAX,
+        },
+        trigger: Platform.OS === 'android' ? { channelId: NOTIFICATION_CHANNEL_ID } : null,
+      });
     });
-  });
+  } catch (e) {
+    console.warn('[FCM] registerBackgroundFCMHandler failed:', e);
+  }
 }
 
 export async function getFCMToken(): Promise<string | null> {
