@@ -10,9 +10,21 @@ import { NOTIFICATION_CHANNEL_ID } from './pushNotifications';
 // Safe check — NativeModules is always present; accessing a missing key returns undefined.
 const isFirebaseAvailable = (): boolean => !!NativeModules.RNFBAppModule;
 
-// Only called when isFirebaseAvailable() is true.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const getMessaging = () => require('@react-native-firebase/messaging').default();
+// Returns the messaging instance, or null when Firebase can't be used. The
+// native module being linked (isFirebaseAvailable) does NOT guarantee the
+// default Firebase app was initialized: on iOS, if GoogleService-Info.plist
+// wasn't applied, getMessaging() throws "No Firebase App '[DEFAULT]' has been
+// created". That must degrade gracefully, never crash the app at startup.
+const getMessagingSafe = (): any | null => {
+  if (!isFirebaseAvailable()) return null;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('@react-native-firebase/messaging').default();
+  } catch (e) {
+    console.warn('[FCM] messaging unavailable (Firebase not initialized):', e);
+    return null;
+  }
+};
 
 // Must be called at module scope (before React mounts) so Firebase can wake
 // the JS engine when the app is killed and a push arrives.
@@ -31,8 +43,9 @@ export function registerBackgroundFCMHandler(): void {
   // uncaught throw at module scope aborts the whole JS bundle and freezes the
   // native splash forever, so this must never be allowed to propagate.
   try {
-    if (!isFirebaseAvailable()) return;
-    getMessaging().setBackgroundMessageHandler(async (remoteMessage: any) => {
+    const messaging = getMessagingSafe();
+    if (!messaging) return;
+    messaging.setBackgroundMessageHandler(async (remoteMessage: any) => {
       const title = (remoteMessage.notification?.title ?? '') as string;
       const body = (remoteMessage.notification?.body ?? '') as string;
       if (!title) return;
@@ -53,12 +66,13 @@ export function registerBackgroundFCMHandler(): void {
 }
 
 export async function getFCMToken(): Promise<string | null> {
-  if (!isFirebaseAvailable()) return null;
+  const messaging = getMessagingSafe();
+  if (!messaging) return null;
   try {
     if (Platform.OS === 'ios') {
-      await getMessaging().registerDeviceForRemoteMessages();
+      await messaging.registerDeviceForRemoteMessages();
     }
-    return await getMessaging().getToken();
+    return await messaging.getToken();
   } catch (e) {
     console.warn('[FCM] getToken failed:', e);
     return null;
@@ -106,8 +120,14 @@ export async function unregisterFCMToken(): Promise<void> {
 
 // Returns an unsubscribe function. Use inside useEffect.
 export function onFCMTokenRefresh(callback: (newToken: string) => void): () => void {
-  if (!isFirebaseAvailable()) return () => {};
-  return getMessaging().onTokenRefresh(callback);
+  const messaging = getMessagingSafe();
+  if (!messaging) return () => {};
+  try {
+    return messaging.onTokenRefresh(callback);
+  } catch (e) {
+    console.warn('[FCM] onTokenRefresh failed:', e);
+    return () => {};
+  }
 }
 
 // Fires when the app is in the foreground OR minimized-but-JS-running when a
@@ -120,11 +140,17 @@ export function onFCMForegroundMessage(
     data: Record<string, string>,
   ) => void,
 ): () => void {
-  if (!isFirebaseAvailable()) return () => {};
-  return getMessaging().onMessage(async (remoteMessage: any) => {
-    callback(
-      remoteMessage.notification as { title?: string; body?: string } | undefined,
-      (remoteMessage.data ?? {}) as Record<string, string>,
-    );
-  });
+  const messaging = getMessagingSafe();
+  if (!messaging) return () => {};
+  try {
+    return messaging.onMessage(async (remoteMessage: any) => {
+      callback(
+        remoteMessage.notification as { title?: string; body?: string } | undefined,
+        (remoteMessage.data ?? {}) as Record<string, string>,
+      );
+    });
+  } catch (e) {
+    console.warn('[FCM] onMessage failed:', e);
+    return () => {};
+  }
 }

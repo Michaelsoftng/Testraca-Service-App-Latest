@@ -14,30 +14,9 @@ import { registerBackgroundFCMHandler } from "./src/core/fcmNotifications";
 SplashScreen.preventAutoHideAsync().catch(() => {});
 registerBackgroundFCMHandler();
 
-// ─── Diagnostic: surface startup JS errors on screen ────────────────────────
-// A production build aborts on an unhandled JS error before any message is
-// visible. Capture the global handler's error so the boundary below can show
-// it (and always hide the native splash so the screen is visible).
-let __startupError: { message: string; stack: string } | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const EU: any = (global as any).ErrorUtils;
-  if (EU?.setGlobalHandler) {
-    const previous = EU.getGlobalHandler?.();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    EU.setGlobalHandler((error: any, isFatal?: boolean) => {
-      __startupError = {
-        message: String(error?.message ?? error),
-        stack: String(error?.stack ?? "").slice(0, 1500),
-      };
-      SplashScreen.hideAsync().catch(() => {});
-      if (!isFatal && typeof previous === "function") {
-        try { previous(error, isFatal); } catch { /* ignore */ }
-      }
-    });
-  }
-} catch { /* ignore */ }
-
+// Production safety net: a render-time error shows a recoverable message
+// instead of aborting the whole app (and always hides the native splash so the
+// screen is visible rather than a frozen splash).
 class StartupErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state: { error: Error | null } = { error: null };
   static getDerivedStateFromError(error: Error) {
@@ -47,17 +26,17 @@ class StartupErrorBoundary extends Component<{ children: ReactNode }, { error: E
     SplashScreen.hideAsync().catch(() => {});
   }
   render() {
-    const err = this.state.error || __startupError;
+    const err = this.state.error;
     if (err) {
       return (
         <View style={styles.errorScreen}>
           <ScrollView contentContainerStyle={{ padding: 20 }}>
-            <Text style={styles.errorTitle}>Startup error (diagnostic build)</Text>
+            <Text style={styles.errorTitle}>Something went wrong</Text>
             <Text selectable style={styles.errorMessage}>
-              {String((err as any).message)}
+              {String(err.message)}
             </Text>
             <Text selectable style={styles.errorStack}>
-              {String((err as any).stack ?? "")}
+              {String(err.stack ?? "")}
             </Text>
           </ScrollView>
         </View>
