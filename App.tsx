@@ -102,6 +102,18 @@ export default function App() {
   const [isRouteLoading, setIsRouteLoading] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Safety net: the native splash is normally hidden from Splashscreen.tsx once
+  // it mounts. If anything upstream (persist rehydration, a slow module import)
+  // delays that mount, the native splash would otherwise stay up forever — which
+  // is exactly the "stuck on splash screen" App Store reviewers reported. Force-
+  // hide after a short delay so the rendered tree is always revealed.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      SplashScreen.hideAsync().catch(() => {});
+    }, 2500);
+    return () => clearTimeout(t);
+  }, []);
+
   const startRouteLoader = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
